@@ -511,11 +511,12 @@ namespace Jellyfin.Drawing.Skia
                 canvas.Clear(SKColor.Parse(options.BackgroundColor));
             }
 
+            using var paint = new SKPaint();
+            paint.FilterQuality = SKFilterQuality.High;
             // Add blur if option is present
             if (blur > 0)
             {
                 // create image from resized bitmap to apply blur
-                using var paint = new SKPaint();
                 using var filter = SKImageFilter.CreateBlur(blur, blur);
                 paint.ImageFilter = filter;
                 canvas.DrawBitmap(resizedBitmap, SKRect.Create(width, height), paint);
@@ -523,7 +524,7 @@ namespace Jellyfin.Drawing.Skia
             else
             {
                 // draw resized bitmap onto canvas
-                canvas.DrawBitmap(resizedBitmap, SKRect.Create(width, height));
+                canvas.DrawBitmap(resizedBitmap, SKRect.Create(width, height), paint);
             }
 
             // If foreground layer present then draw
