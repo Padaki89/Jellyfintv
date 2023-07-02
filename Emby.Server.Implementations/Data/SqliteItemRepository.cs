@@ -2453,6 +2453,11 @@ namespace Emby.Server.Implementations.Data
                 {
                     builder.Append("+ ((CleanName like @SearchTermContains or (OriginalTitle not null and OriginalTitle like @SearchTermContains)) * 10)");
                     builder.Append("+ ((Tags not null and Tags like @SearchTermContains) * 5)");
+
+                    if (query.SearchTerm.Trim().Contains(" ", StringComparison.Ordinal))
+                    {
+                        builder.Append("+ ((CleanName like @SearchTermContainsWords or (OriginalTitle not null and OriginalTitle like @SearchTermContainsWords)) * 10)");
+                    }
                 }
 
                 builder.Append(") as SearchScore");
@@ -2472,6 +2477,7 @@ namespace Emby.Server.Implementations.Data
 
             searchTerm = FixUnicodeChars(searchTerm);
             searchTerm = GetCleanValue(searchTerm);
+            string searchTermEachWordLike = GetEachWordContainsSearch(searchTerm);
 
             var commandText = statement.SQL;
             if (commandText.Contains("@SearchTermStartsWith", StringComparison.OrdinalIgnoreCase))
@@ -2482,6 +2488,11 @@ namespace Emby.Server.Implementations.Data
             if (commandText.Contains("@SearchTermContains", StringComparison.OrdinalIgnoreCase))
             {
                 statement.TryBind("@SearchTermContains", "%" + searchTerm + "%");
+            }
+
+            if (commandText.Contains("@SearchTermContainsWords", StringComparison.OrdinalIgnoreCase))
+            {
+                statement.TryBind("@SearchTermContainsWords", searchTermEachWordLike);
             }
         }
 
@@ -4625,6 +4636,25 @@ namespace Emby.Server.Implementations.Data
             }
 
             return value.RemoveDiacritics().ToLowerInvariant();
+        }
+
+        public string GetEachWordContainsSearch(string str)
+        {
+            var split = str.Split(" ");
+            StringBuilder sb = new StringBuilder();
+            foreach (string c in split.ToList())
+            {
+                char delimiter = char.Parse("%");
+                if (!sb.ToString().EndsWith(delimiter.ToString(), StringComparison.Ordinal))
+                {
+                    sb.Append(delimiter);
+                }
+
+                sb.Append(c);
+                sb.Append(delimiter);
+            }
+
+            return sb.ToString().Trim();
         }
 
         private bool EnableGroupByPresentationUniqueKey(InternalItemsQuery query)
