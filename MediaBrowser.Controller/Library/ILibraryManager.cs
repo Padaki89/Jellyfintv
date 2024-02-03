@@ -16,7 +16,6 @@ using MediaBrowser.Controller.Resolvers;
 using MediaBrowser.Controller.Sorting;
 using MediaBrowser.Model.Configuration;
 using MediaBrowser.Model.Dto;
-using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.IO;
 using MediaBrowser.Model.Querying;
 using Episode = MediaBrowser.Controller.Entities.TV.Episode;
@@ -50,8 +49,6 @@ namespace MediaBrowser.Controller.Library
         /// </summary>
         /// <value>The root folder.</value>
         AggregateFolder RootFolder { get; }
-
-        bool IsScanRunning { get; }
 
         /// <summary>
         /// Resolves the path.
@@ -143,23 +140,7 @@ namespace MediaBrowser.Controller.Library
         /// <returns>Task.</returns>
         Task ValidatePeopleAsync(IProgress<double> progress, CancellationToken cancellationToken);
 
-        /// <summary>
-        /// Reloads the root media folder.
-        /// </summary>
-        /// <param name="progress">The progress.</param>
-        /// <param name="cancellationToken">The cancellation token.</param>
-        /// <returns>Task.</returns>
-        Task ValidateMediaLibrary(IProgress<double> progress, CancellationToken cancellationToken);
-
         Task UpdateImagesAsync(BaseItem item, bool forceUpdate = false);
-
-        /// <summary>
-        /// Gets the default view.
-        /// </summary>
-        /// <returns>IEnumerable{VirtualFolderInfo}.</returns>
-        List<VirtualFolderInfo> GetVirtualFolders();
-
-        List<VirtualFolderInfo> GetVirtualFolders(bool includeRefreshState);
 
         /// <summary>
         /// Gets the item by id.
@@ -183,13 +164,11 @@ namespace MediaBrowser.Controller.Library
         /// <param name="resolvers">The resolvers.</param>
         /// <param name="introProviders">The intro providers.</param>
         /// <param name="itemComparers">The item comparers.</param>
-        /// <param name="postscanTasks">The postscan tasks.</param>
         void AddParts(
             IEnumerable<IResolverIgnoreRule> rules,
             IEnumerable<IItemResolver> resolvers,
             IEnumerable<IIntroProvider> introProviders,
-            IEnumerable<IBaseItemComparer> itemComparers,
-            IEnumerable<ILibraryPostScanTask> postscanTasks);
+            IEnumerable<IBaseItemComparer> itemComparers);
 
         /// <summary>
         /// Sorts the specified items.
@@ -549,16 +528,6 @@ namespace MediaBrowser.Controller.Library
 
         Guid GetMusicGenreId(string name);
 
-        Task AddVirtualFolder(string name, CollectionTypeOptions? collectionType, LibraryOptions options, bool refreshLibrary);
-
-        Task RemoveVirtualFolder(string name, bool refreshLibrary);
-
-        void AddMediaPath(string virtualFolderName, MediaPathInfo mediaPath);
-
-        void UpdateMediaPath(string virtualFolderName, MediaPathInfo mediaPath);
-
-        void RemoveMediaPath(string virtualFolderName, string mediaPath);
-
         QueryResult<(BaseItem Item, ItemCounts ItemCounts)> GetGenres(InternalItemsQuery query);
 
         QueryResult<(BaseItem Item, ItemCounts ItemCounts)> GetMusicGenres(InternalItemsQuery query);
@@ -576,13 +545,5 @@ namespace MediaBrowser.Controller.Library
         Task RunMetadataSavers(BaseItem item, ItemUpdateType updateReason);
 
         BaseItem GetParentItem(Guid? parentId, Guid? userId);
-
-        /// <summary>
-        /// Queue a library scan.
-        /// </summary>
-        /// <remarks>
-        /// This exists so plugins can trigger a library scan.
-        /// </remarks>
-        void QueueLibraryScan();
     }
 }

@@ -22,7 +22,6 @@ using Jellyfin.Data.Entities;
 using Jellyfin.Data.Enums;
 using Jellyfin.Extensions;
 using MediaBrowser.Common.Extensions;
-using MediaBrowser.Common.Progress;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Configuration;
 using MediaBrowser.Controller.Drawing;
@@ -60,15 +59,12 @@ namespace Emby.Server.Implementations.Library
     /// </summary>
     public class LibraryManager : ILibraryManager
     {
-        private const string ShortcutFileExtension = ".mblink";
-
         private readonly ILogger<LibraryManager> _logger;
         private readonly ConcurrentDictionary<Guid, BaseItem> _cache;
         private readonly ITaskManager _taskManager;
         private readonly IUserManager _userManager;
         private readonly IUserDataManager _userDataRepository;
         private readonly IServerConfigurationManager _configurationManager;
-        private readonly Lazy<ILibraryMonitor> _libraryMonitorFactory;
         private readonly Lazy<IProviderManager> _providerManagerFactory;
         private readonly Lazy<IUserViewManager> _userviewManagerFactory;
         private readonly IServerApplicationHost _appHost;
@@ -104,7 +100,6 @@ namespace Emby.Server.Implementations.Library
         /// <param name="userManager">The user manager.</param>
         /// <param name="configurationManager">The configuration manager.</param>
         /// <param name="userDataRepository">The user data repository.</param>
-        /// <param name="libraryMonitorFactory">The library monitor.</param>
         /// <param name="fileSystem">The file system.</param>
         /// <param name="providerManagerFactory">The provider manager.</param>
         /// <param name="userviewManagerFactory">The userview manager.</param>
@@ -120,7 +115,6 @@ namespace Emby.Server.Implementations.Library
             IUserManager userManager,
             IServerConfigurationManager configurationManager,
             IUserDataManager userDataRepository,
-            Lazy<ILibraryMonitor> libraryMonitorFactory,
             IFileSystem fileSystem,
             Lazy<IProviderManager> providerManagerFactory,
             Lazy<IUserViewManager> userviewManagerFactory,
@@ -136,7 +130,6 @@ namespace Emby.Server.Implementations.Library
             _userManager = userManager;
             _configurationManager = configurationManager;
             _userDataRepository = userDataRepository;
-            _libraryMonitorFactory = libraryMonitorFactory;
             _fileSystem = fileSystem;
             _providerManagerFactory = providerManagerFactory;
             _userviewManagerFactory = userviewManagerFactory;
@@ -188,17 +181,9 @@ namespace Emby.Server.Implementations.Library
             }
         }
 
-        private ILibraryMonitor LibraryMonitor => _libraryMonitorFactory.Value;
-
         private IProviderManager ProviderManager => _providerManagerFactory.Value;
 
         private IUserViewManager UserViewManager => _userviewManagerFactory.Value;
-
-        /// <summary>
-        /// Gets or sets the postscan tasks.
-        /// </summary>
-        /// <value>The postscan tasks.</value>
-        private ILibraryPostScanTask[] PostscanTasks { get; set; } = Array.Empty<ILibraryPostScanTask>();
 
         /// <summary>
         /// Gets or sets the intro providers.
@@ -226,8 +211,6 @@ namespace Emby.Server.Implementations.Library
         /// <value>The comparers.</value>
         private IBaseItemComparer[] Comparers { get; set; } = Array.Empty<IBaseItemComparer>();
 
-        public bool IsScanRunning { get; private set; }
-
         /// <summary>
         /// Adds the parts.
         /// </summary>
@@ -235,20 +218,17 @@ namespace Emby.Server.Implementations.Library
         /// <param name="resolvers">The resolvers.</param>
         /// <param name="introProviders">The intro providers.</param>
         /// <param name="itemComparers">The item comparers.</param>
-        /// <param name="postscanTasks">The post scan tasks.</param>
         public void AddParts(
             IEnumerable<IResolverIgnoreRule> rules,
             IEnumerable<IItemResolver> resolvers,
             IEnumerable<IIntroProvider> introProviders,
-            IEnumerable<IBaseItemComparer> itemComparers,
-            IEnumerable<ILibraryPostScanTask> postscanTasks)
+            IEnumerable<IBaseItemComparer> itemComparers)
         {
             EntityResolutionIgnoreRules = rules.ToArray();
             EntityResolvers = resolvers.OrderBy(i => i.Priority).ToArray();
             MultiItemResolvers = EntityResolvers.OfType<IMultiItemResolver>().ToArray();
             IntroProviders = introProviders.ToArray();
             Comparers = itemComparers.ToArray();
-            PostscanTasks = postscanTasks.ToArray();
         }
 
         /// <summary>
@@ -978,237 +958,6 @@ namespace Emby.Server.Implementations.Library
             Directory.CreateDirectory(_configurationManager.ApplicationPaths.PeoplePath);
 
             return new PeopleValidator(this, _logger, _fileSystem).ValidatePeople(cancellationToken, progress);
-        }
-
-        /// <summary>
-        /// Reloads the root media folder.
-        /// </summary>
-        /// <param name="progress">The progress.</param>
-        /// <param name="cancellationToken">The cancellation token.</param>
-        /// <returns>Task.</returns>
-        public Task ValidateMediaLibrary(IProgress<double> progress, CancellationToken cancellationToken)
-        {
-            // Just run the scheduled task so that the user can see it
-            _taskManager.CancelIfRunningAndQueue<RefreshMediaLibraryTask>();
-
-            return Task.CompletedTask;
-        }
-
-        /// <summary>
-        /// Validates the media library internal.
-        /// </summary>
-        /// <param name="progress">The progress.</param>
-        /// <param name="cancellationToken">The cancellation token.</param>
-        /// <returns>Task.</returns>
-        public async Task ValidateMediaLibraryInternal(IProgress<double> progress, CancellationToken cancellationToken)
-        {
-            IsScanRunning = true;
-            LibraryMonitor.Stop();
-
-            try
-            {
-                await PerformLibraryValidation(progress, cancellationToken).ConfigureAwait(false);
-            }
-            finally
-            {
-                LibraryMonitor.Start();
-                IsScanRunning = false;
-            }
-        }
-
-        private async Task ValidateTopLibraryFolders(CancellationToken cancellationToken)
-        {
-            await RootFolder.RefreshMetadata(cancellationToken).ConfigureAwait(false);
-
-            // Start by just validating the children of the root, but go no further
-            await RootFolder.ValidateChildren(
-                new SimpleProgress<double>(),
-                new MetadataRefreshOptions(new DirectoryService(_fileSystem)),
-                recursive: false,
-                cancellationToken).ConfigureAwait(false);
-
-            await GetUserRootFolder().RefreshMetadata(cancellationToken).ConfigureAwait(false);
-
-            await GetUserRootFolder().ValidateChildren(
-                new SimpleProgress<double>(),
-                new MetadataRefreshOptions(new DirectoryService(_fileSystem)),
-                recursive: false,
-                cancellationToken).ConfigureAwait(false);
-
-            // Quickly scan CollectionFolders for changes
-            foreach (var folder in GetUserRootFolder().Children.OfType<Folder>())
-            {
-                await folder.RefreshMetadata(cancellationToken).ConfigureAwait(false);
-            }
-        }
-
-        private async Task PerformLibraryValidation(IProgress<double> progress, CancellationToken cancellationToken)
-        {
-            _logger.LogInformation("Validating media library");
-
-            await ValidateTopLibraryFolders(cancellationToken).ConfigureAwait(false);
-
-            var innerProgress = new ActionableProgress<double>();
-
-            innerProgress.RegisterAction(pct => progress.Report(pct * 0.96));
-
-            // Validate the entire media library
-            await RootFolder.ValidateChildren(innerProgress, new MetadataRefreshOptions(new DirectoryService(_fileSystem)), recursive: true, cancellationToken).ConfigureAwait(false);
-
-            progress.Report(96);
-
-            innerProgress = new ActionableProgress<double>();
-
-            innerProgress.RegisterAction(pct => progress.Report(96 + (pct * .04)));
-
-            await RunPostScanTasks(innerProgress, cancellationToken).ConfigureAwait(false);
-
-            progress.Report(100);
-        }
-
-        /// <summary>
-        /// Runs the post scan tasks.
-        /// </summary>
-        /// <param name="progress">The progress.</param>
-        /// <param name="cancellationToken">The cancellation token.</param>
-        /// <returns>Task.</returns>
-        private async Task RunPostScanTasks(IProgress<double> progress, CancellationToken cancellationToken)
-        {
-            var tasks = PostscanTasks.ToList();
-
-            var numComplete = 0;
-            var numTasks = tasks.Count;
-
-            foreach (var task in tasks)
-            {
-                var innerProgress = new ActionableProgress<double>();
-
-                // Prevent access to modified closure
-                var currentNumComplete = numComplete;
-
-                innerProgress.RegisterAction(pct =>
-                {
-                    double innerPercent = pct;
-                    innerPercent /= 100;
-                    innerPercent += currentNumComplete;
-
-                    innerPercent /= numTasks;
-                    innerPercent *= 100;
-
-                    progress.Report(innerPercent);
-                });
-
-                _logger.LogDebug("Running post-scan task {0}", task.GetType().Name);
-
-                try
-                {
-                    await task.Run(innerProgress, cancellationToken).ConfigureAwait(false);
-                }
-                catch (OperationCanceledException)
-                {
-                    _logger.LogInformation("Post-scan task cancelled: {0}", task.GetType().Name);
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error running post-scan task");
-                }
-
-                numComplete++;
-                double percent = numComplete;
-                percent /= numTasks;
-                progress.Report(percent * 100);
-            }
-
-            _itemRepository.UpdateInheritedValues();
-
-            progress.Report(100);
-        }
-
-        /// <summary>
-        /// Gets the default view.
-        /// </summary>
-        /// <returns>IEnumerable{VirtualFolderInfo}.</returns>
-        public List<VirtualFolderInfo> GetVirtualFolders()
-        {
-            return GetVirtualFolders(false);
-        }
-
-        public List<VirtualFolderInfo> GetVirtualFolders(bool includeRefreshState)
-        {
-            _logger.LogDebug("Getting topLibraryFolders");
-            var topLibraryFolders = GetUserRootFolder().Children.ToList();
-
-            _logger.LogDebug("Getting refreshQueue");
-            var refreshQueue = includeRefreshState ? ProviderManager.GetRefreshQueue() : null;
-
-            return _fileSystem.GetDirectoryPaths(_configurationManager.ApplicationPaths.DefaultUserViewsPath)
-                .Select(dir => GetVirtualFolderInfo(dir, topLibraryFolders, refreshQueue))
-                .ToList();
-        }
-
-        private VirtualFolderInfo GetVirtualFolderInfo(string dir, List<BaseItem> allCollectionFolders, HashSet<Guid> refreshQueue)
-        {
-            var info = new VirtualFolderInfo
-            {
-                Name = Path.GetFileName(dir),
-
-                Locations = _fileSystem.GetFilePaths(dir, false)
-                .Where(i => Path.GetExtension(i.AsSpan()).Equals(ShortcutFileExtension, StringComparison.OrdinalIgnoreCase))
-                    .Select(i =>
-                    {
-                        try
-                        {
-                            return _appHost.ExpandVirtualPath(_fileSystem.ResolveShortcut(i));
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogError(ex, "Error resolving shortcut file {File}", i);
-                            return null;
-                        }
-                    })
-                    .Where(i => i is not null)
-                    .Order()
-                    .ToArray(),
-
-                CollectionType = GetCollectionType(dir)
-            };
-
-            var libraryFolder = allCollectionFolders.FirstOrDefault(i => string.Equals(i.Path, dir, StringComparison.OrdinalIgnoreCase));
-            if (libraryFolder is not null)
-            {
-                var libraryFolderId = libraryFolder.Id.ToString("N", CultureInfo.InvariantCulture);
-                info.ItemId = libraryFolderId;
-                if (libraryFolder.HasImage(ImageType.Primary))
-                {
-                    info.PrimaryImageItemId = libraryFolderId;
-                }
-
-                info.LibraryOptions = GetLibraryOptions(libraryFolder);
-
-                if (refreshQueue is not null)
-                {
-                    info.RefreshProgress = libraryFolder.GetRefreshProgress();
-
-                    info.RefreshStatus = info.RefreshProgress.HasValue ? "Active" : refreshQueue.Contains(libraryFolder.Id) ? "Queued" : "Idle";
-                }
-            }
-
-            return info;
-        }
-
-        private CollectionTypeOptions? GetCollectionType(string path)
-        {
-            var files = _fileSystem.GetFilePaths(path, new[] { ".collection" }, true, false);
-            foreach (ReadOnlySpan<char> file in files)
-            {
-                if (Enum.TryParse<CollectionTypeOptions>(Path.GetFileNameWithoutExtension(file), true, out var res))
-                {
-                    return res;
-                }
-            }
-
-            return null;
         }
 
         /// <summary>
@@ -2428,12 +2177,6 @@ namespace Emby.Server.Implementations.Library
         }
 
         /// <inheritdoc />
-        public void QueueLibraryScan()
-        {
-            _taskManager.QueueScheduledTask<RefreshMediaLibraryTask>();
-        }
-
-        /// <inheritdoc />
         public int? GetSeasonNumberFromPath(string path)
             => SeasonPathParser.Parse(path, true, true).SeasonNumber;
 
@@ -2814,77 +2557,6 @@ namespace Emby.Server.Implementations.Library
             throw new InvalidOperationException();
         }
 
-        public async Task AddVirtualFolder(string name, CollectionTypeOptions? collectionType, LibraryOptions options, bool refreshLibrary)
-        {
-            if (string.IsNullOrWhiteSpace(name))
-            {
-                throw new ArgumentNullException(nameof(name));
-            }
-
-            name = _fileSystem.GetValidFilename(name);
-
-            var rootFolderPath = _configurationManager.ApplicationPaths.DefaultUserViewsPath;
-
-            var existingNameCount = 1; // first numbered name will be 2
-            var virtualFolderPath = Path.Combine(rootFolderPath, name);
-            var originalName = name;
-            while (Directory.Exists(virtualFolderPath))
-            {
-                existingNameCount++;
-                name = originalName + existingNameCount;
-                virtualFolderPath = Path.Combine(rootFolderPath, name);
-            }
-
-            var mediaPathInfos = options.PathInfos;
-            if (mediaPathInfos is not null)
-            {
-                var invalidpath = mediaPathInfos.FirstOrDefault(i => !Directory.Exists(i.Path));
-                if (invalidpath is not null)
-                {
-                    throw new ArgumentException("The specified path does not exist: " + invalidpath.Path + ".");
-                }
-            }
-
-            LibraryMonitor.Stop();
-
-            try
-            {
-                Directory.CreateDirectory(virtualFolderPath);
-
-                if (collectionType is not null)
-                {
-                    var path = Path.Combine(virtualFolderPath, collectionType.ToString().ToLowerInvariant() + ".collection");
-
-                    await File.WriteAllBytesAsync(path, Array.Empty<byte>()).ConfigureAwait(false);
-                }
-
-                CollectionFolder.SaveLibraryOptions(virtualFolderPath, options);
-
-                if (mediaPathInfos is not null)
-                {
-                    foreach (var path in mediaPathInfos)
-                    {
-                        AddMediaPathInternal(name, path, false);
-                    }
-                }
-            }
-            finally
-            {
-                if (refreshLibrary)
-                {
-                    await ValidateTopLibraryFolders(CancellationToken.None).ConfigureAwait(false);
-
-                    StartScanInBackground();
-                }
-                else
-                {
-                    // Need to add a delay here or directory watchers may still pick up the changes
-                    await Task.Delay(1000).ConfigureAwait(false);
-                    LibraryMonitor.Start();
-                }
-            }
-        }
-
         private async Task SavePeopleMetadataAsync(IEnumerable<PersonInfo> people, CancellationToken cancellationToken)
         {
             List<BaseItem> personsToSave = null;
@@ -2947,216 +2619,6 @@ namespace Emby.Server.Implementations.Library
             {
                 CreateItems(personsToSave, null, CancellationToken.None);
             }
-        }
-
-        private void StartScanInBackground()
-        {
-            Task.Run(() =>
-            {
-                // No need to start if scanning the library because it will handle it
-                ValidateMediaLibrary(new SimpleProgress<double>(), CancellationToken.None);
-            });
-        }
-
-        public void AddMediaPath(string virtualFolderName, MediaPathInfo mediaPath)
-        {
-            AddMediaPathInternal(virtualFolderName, mediaPath, true);
-        }
-
-        private void AddMediaPathInternal(string virtualFolderName, MediaPathInfo pathInfo, bool saveLibraryOptions)
-        {
-            ArgumentNullException.ThrowIfNull(pathInfo);
-
-            var path = pathInfo.Path;
-
-            if (string.IsNullOrWhiteSpace(path))
-            {
-                throw new ArgumentException(nameof(path));
-            }
-
-            if (!Directory.Exists(path))
-            {
-                throw new FileNotFoundException("The path does not exist.");
-            }
-
-            var rootFolderPath = _configurationManager.ApplicationPaths.DefaultUserViewsPath;
-            var virtualFolderPath = Path.Combine(rootFolderPath, virtualFolderName);
-
-            var shortcutFilename = Path.GetFileNameWithoutExtension(path);
-
-            var lnk = Path.Combine(virtualFolderPath, shortcutFilename + ShortcutFileExtension);
-
-            while (File.Exists(lnk))
-            {
-                shortcutFilename += "1";
-                lnk = Path.Combine(virtualFolderPath, shortcutFilename + ShortcutFileExtension);
-            }
-
-            _fileSystem.CreateShortcut(lnk, _appHost.ReverseVirtualPath(path));
-
-            RemoveContentTypeOverrides(path);
-
-            if (saveLibraryOptions)
-            {
-                var libraryOptions = CollectionFolder.GetLibraryOptions(virtualFolderPath);
-
-                var list = libraryOptions.PathInfos.ToList();
-                list.Add(pathInfo);
-                libraryOptions.PathInfos = list.ToArray();
-
-                SyncLibraryOptionsToLocations(virtualFolderPath, libraryOptions);
-
-                CollectionFolder.SaveLibraryOptions(virtualFolderPath, libraryOptions);
-            }
-        }
-
-        public void UpdateMediaPath(string virtualFolderName, MediaPathInfo mediaPath)
-        {
-            ArgumentNullException.ThrowIfNull(mediaPath);
-
-            var rootFolderPath = _configurationManager.ApplicationPaths.DefaultUserViewsPath;
-            var virtualFolderPath = Path.Combine(rootFolderPath, virtualFolderName);
-
-            var libraryOptions = CollectionFolder.GetLibraryOptions(virtualFolderPath);
-
-            SyncLibraryOptionsToLocations(virtualFolderPath, libraryOptions);
-
-            var list = libraryOptions.PathInfos.ToList();
-            foreach (var originalPathInfo in list)
-            {
-                if (string.Equals(mediaPath.Path, originalPathInfo.Path, StringComparison.Ordinal))
-                {
-                    originalPathInfo.NetworkPath = mediaPath.NetworkPath;
-                    break;
-                }
-            }
-
-            libraryOptions.PathInfos = list.ToArray();
-
-            CollectionFolder.SaveLibraryOptions(virtualFolderPath, libraryOptions);
-        }
-
-        private void SyncLibraryOptionsToLocations(string virtualFolderPath, LibraryOptions options)
-        {
-            var topLibraryFolders = GetUserRootFolder().Children.ToList();
-            var info = GetVirtualFolderInfo(virtualFolderPath, topLibraryFolders, null);
-
-            if (info.Locations.Length > 0 && info.Locations.Length != options.PathInfos.Length)
-            {
-                var list = options.PathInfos.ToList();
-
-                foreach (var location in info.Locations)
-                {
-                    if (!list.Any(i => string.Equals(i.Path, location, StringComparison.Ordinal)))
-                    {
-                        list.Add(new MediaPathInfo(location));
-                    }
-                }
-
-                options.PathInfos = list.ToArray();
-            }
-        }
-
-        public async Task RemoveVirtualFolder(string name, bool refreshLibrary)
-        {
-            if (string.IsNullOrWhiteSpace(name))
-            {
-                throw new ArgumentNullException(nameof(name));
-            }
-
-            var rootFolderPath = _configurationManager.ApplicationPaths.DefaultUserViewsPath;
-
-            var path = Path.Combine(rootFolderPath, name);
-
-            if (!Directory.Exists(path))
-            {
-                throw new FileNotFoundException("The media folder does not exist");
-            }
-
-            LibraryMonitor.Stop();
-
-            try
-            {
-                Directory.Delete(path, true);
-            }
-            finally
-            {
-                CollectionFolder.OnCollectionFolderChange();
-
-                if (refreshLibrary)
-                {
-                    await ValidateTopLibraryFolders(CancellationToken.None).ConfigureAwait(false);
-
-                    StartScanInBackground();
-                }
-                else
-                {
-                    // Need to add a delay here or directory watchers may still pick up the changes
-                    await Task.Delay(1000).ConfigureAwait(false);
-                    LibraryMonitor.Start();
-                }
-            }
-        }
-
-        private void RemoveContentTypeOverrides(string path)
-        {
-            if (string.IsNullOrWhiteSpace(path))
-            {
-                throw new ArgumentNullException(nameof(path));
-            }
-
-            List<NameValuePair> removeList = null;
-
-            foreach (var contentType in _configurationManager.Configuration.ContentTypes)
-            {
-                if (string.IsNullOrWhiteSpace(contentType.Name)
-                    || _fileSystem.AreEqual(path, contentType.Name)
-                    || _fileSystem.ContainsSubPath(path, contentType.Name))
-                {
-                    (removeList ??= new()).Add(contentType);
-                }
-            }
-
-            if (removeList is not null)
-            {
-                _configurationManager.Configuration.ContentTypes = _configurationManager.Configuration.ContentTypes
-                    .Except(removeList)
-                    .ToArray();
-
-                _configurationManager.SaveConfiguration();
-            }
-        }
-
-        public void RemoveMediaPath(string virtualFolderName, string mediaPath)
-        {
-            ArgumentException.ThrowIfNullOrEmpty(mediaPath);
-
-            var rootFolderPath = _configurationManager.ApplicationPaths.DefaultUserViewsPath;
-            var virtualFolderPath = Path.Combine(rootFolderPath, virtualFolderName);
-
-            if (!Directory.Exists(virtualFolderPath))
-            {
-                throw new FileNotFoundException(
-                    string.Format(CultureInfo.InvariantCulture, "The media collection {0} does not exist", virtualFolderName));
-            }
-
-            var shortcut = _fileSystem.GetFilePaths(virtualFolderPath, true)
-                .Where(i => Path.GetExtension(i.AsSpan()).Equals(ShortcutFileExtension, StringComparison.OrdinalIgnoreCase))
-                .FirstOrDefault(f => _appHost.ExpandVirtualPath(_fileSystem.ResolveShortcut(f)).Equals(mediaPath, StringComparison.OrdinalIgnoreCase));
-
-            if (!string.IsNullOrEmpty(shortcut))
-            {
-                _fileSystem.DeleteFile(shortcut);
-            }
-
-            var libraryOptions = CollectionFolder.GetLibraryOptions(virtualFolderPath);
-
-            libraryOptions.PathInfos = libraryOptions
-                .PathInfos
-                .Where(i => !string.Equals(i.Path, mediaPath, StringComparison.Ordinal))
-                .ToArray();
-
-            CollectionFolder.SaveLibraryOptions(virtualFolderPath, libraryOptions);
         }
     }
 }

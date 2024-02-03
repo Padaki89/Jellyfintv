@@ -21,6 +21,7 @@ using Jellyfin.LiveTv.Configuration;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Common.Extensions;
 using MediaBrowser.Common.Progress;
+using MediaBrowser.Controller;
 using MediaBrowser.Controller.Configuration;
 using MediaBrowser.Controller.Dto;
 using MediaBrowser.Controller.Entities;
@@ -28,6 +29,7 @@ using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.LiveTv;
 using MediaBrowser.Controller.MediaEncoding;
+using MediaBrowser.Controller.Metadata;
 using MediaBrowser.Controller.Providers;
 using MediaBrowser.Model.Configuration;
 using MediaBrowser.Model.Dto;
@@ -57,18 +59,20 @@ namespace Jellyfin.LiveTv.EmbyTV
 
         private readonly ILibraryMonitor _libraryMonitor;
         private readonly ILibraryManager _libraryManager;
+        private readonly ILibraryRefreshManager _libraryRefreshManager;
+        private readonly IVirtualFolderManager _virtualFolderManager;
         private readonly IProviderManager _providerManager;
         private readonly IMediaEncoder _mediaEncoder;
         private readonly IMediaSourceManager _mediaSourceManager;
         private readonly IStreamHelper _streamHelper;
 
-        private readonly ConcurrentDictionary<string, ActiveRecordingInfo> _activeRecordings =
-            new ConcurrentDictionary<string, ActiveRecordingInfo>(StringComparer.OrdinalIgnoreCase);
+        private readonly ConcurrentDictionary<string, ActiveRecordingInfo> _activeRecordings
+            = new(StringComparer.OrdinalIgnoreCase);
 
-        private readonly ConcurrentDictionary<string, EpgChannelData> _epgChannels =
-            new ConcurrentDictionary<string, EpgChannelData>(StringComparer.OrdinalIgnoreCase);
+        private readonly ConcurrentDictionary<string, EpgChannelData> _epgChannels
+            = new(StringComparer.OrdinalIgnoreCase);
 
-        private readonly SemaphoreSlim _recordingDeleteSemaphore = new SemaphoreSlim(1, 1);
+        private readonly SemaphoreSlim _recordingDeleteSemaphore = new(1, 1);
 
         private bool _disposed;
 
@@ -83,6 +87,8 @@ namespace Jellyfin.LiveTv.EmbyTV
             IFileSystem fileSystem,
             ILibraryManager libraryManager,
             ILibraryMonitor libraryMonitor,
+            ILibraryRefreshManager libraryRefreshManager,
+            IVirtualFolderManager virtualFolderManager,
             IProviderManager providerManager,
             IMediaEncoder mediaEncoder)
         {
@@ -94,6 +100,8 @@ namespace Jellyfin.LiveTv.EmbyTV
             _fileSystem = fileSystem;
             _libraryManager = libraryManager;
             _libraryMonitor = libraryMonitor;
+            _libraryRefreshManager = libraryRefreshManager;
+            _virtualFolderManager = virtualFolderManager;
             _providerManager = providerManager;
             _mediaEncoder = mediaEncoder;
             _liveTvManager = (LiveTvManager)liveTvManager;
@@ -156,9 +164,7 @@ namespace Jellyfin.LiveTv.EmbyTV
             try
             {
                 var recordingFolders = GetRecordingFolders().ToArray();
-                var virtualFolders = _libraryManager.GetVirtualFolders();
-
-                var allExistingPaths = virtualFolders.SelectMany(i => i.Locations).ToList();
+                var allExistingPaths = _virtualFolderManager.GetVirtualFolders().SelectMany(i => i.Locations).ToList();
 
                 var pathsAdded = new List<string>();
 
@@ -181,7 +187,7 @@ namespace Jellyfin.LiveTv.EmbyTV
                     };
                     try
                     {
-                        await _libraryManager.AddVirtualFolder(recordingFolder.Name, recordingFolder.CollectionType, libraryOptions, true).ConfigureAwait(false);
+                        await _virtualFolderManager.AddVirtualFolder(recordingFolder.Name, recordingFolder.CollectionType, libraryOptions, true).ConfigureAwait(false);
                     }
                     catch (Exception ex)
                     {
@@ -220,9 +226,8 @@ namespace Jellyfin.LiveTv.EmbyTV
             _logger.LogDebug("Removing path from library: {0}", path);
 
             var requiresRefresh = false;
-            var virtualFolders = _libraryManager.GetVirtualFolders();
 
-            foreach (var virtualFolder in virtualFolders)
+            foreach (var virtualFolder in _virtualFolderManager.GetVirtualFolders())
             {
                 if (!virtualFolder.Locations.Contains(path, StringComparison.OrdinalIgnoreCase))
                 {
@@ -234,7 +239,7 @@ namespace Jellyfin.LiveTv.EmbyTV
                     // remove entire virtual folder
                     try
                     {
-                        await _libraryManager.RemoveVirtualFolder(virtualFolder.Name, true).ConfigureAwait(false);
+                        await _virtualFolderManager.RemoveVirtualFolder(virtualFolder.Name, true).ConfigureAwait(false);
                     }
                     catch (Exception ex)
                     {
@@ -245,7 +250,7 @@ namespace Jellyfin.LiveTv.EmbyTV
                 {
                     try
                     {
-                        _libraryManager.RemoveMediaPath(virtualFolder.Name, path);
+                        _virtualFolderManager.RemoveMediaPath(virtualFolder.Name, path, false);
                         requiresRefresh = true;
                     }
                     catch (Exception ex)
@@ -257,7 +262,7 @@ namespace Jellyfin.LiveTv.EmbyTV
 
             if (requiresRefresh)
             {
-                await _libraryManager.ValidateMediaLibrary(new SimpleProgress<double>(), CancellationToken.None).ConfigureAwait(false);
+                _libraryRefreshManager.StartScan();
             }
         }
 
