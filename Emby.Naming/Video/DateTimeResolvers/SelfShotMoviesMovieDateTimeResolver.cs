@@ -9,8 +9,14 @@ namespace Emby.Naming.Video.DateTimeResolvers;
 /// Eg. "My Movie 2013.12.09".
 /// If there is a additional timestamp we will use the extra date but not.
 /// </summary>
-public class SelfShotMoviesMovieDateTimeResolver : IMovieDateTimeResolver
+public partial class SelfShotMoviesMovieDateTimeResolver : IMovieDateTimeResolver
 {
+    [GeneratedRegex(@"(?'name'.*(?'timestamp'(19\d{2}|20\d{2})(-|\.)?(\d{1,2})(-|\.)?(\d{1,2}))).*(?'date'19\d{2}|20\d{2})", RegexOptions.IgnoreCase)]
+    private static partial Regex TimestampWithDateRegex();
+
+    [GeneratedRegex(@"(?'name'.*(?'timestamp'(19\d{2}|20\d{2})(-|\.)?(\d{1,2})(-|\.)?(\d{1,2})))", RegexOptions.IgnoreCase)]
+    private static partial Regex TimestampRegex();
+
     /// <summary>
     /// Attempts to resolve date and Name from the provided fileName.
     /// </summary>
@@ -19,10 +25,7 @@ public class SelfShotMoviesMovieDateTimeResolver : IMovieDateTimeResolver
     /// <returns>null if could not resolve.</returns>
     public CleanDateTimeResult? Resolve(string fileName, NamingOptions namingOptions)
     {
-        var regexWithDate = new Regex(@"(?'name'.*(?'timestamp'(19\d{2}|20\d{2})(-|\.)?(\d{1,2})(-|\.)?(\d{1,2}))).*(?'date'19\d{2}|20\d{2})");
-        var regexNoDate = new Regex(@"(?'name'.*(?'timestamp'(19\d{2}|20\d{2})(-|\.)?(\d{1,2})(-|\.)?(\d{1,2})))");
-
-        foreach (var regex in new[] { regexWithDate, regexNoDate })
+        foreach (var regex in new[] { TimestampWithDateRegex(), TimestampRegex() })
         {
             var match = regex.Match(fileName);
 

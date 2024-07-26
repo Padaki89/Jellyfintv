@@ -8,8 +8,11 @@ namespace Emby.Naming.Video.DateTimeResolvers;
 /// If a timestamp is explititly defined by brackets () or []
 /// Eg. "1883[2021]" will use 2021 as the date.
 /// </summary>
-public class TimeExplicitlyInBracketsMovieDateTimeResolver : IMovieDateTimeResolver
+public partial class TimeExplicitlyInBracketsMovieDateTimeResolver : IMovieDateTimeResolver
 {
+    [GeneratedRegex(@"((\[|\()(?'date'\d{4})(\]|\)))", RegexOptions.IgnoreCase)]
+    private static partial Regex DateInBracketsRegex();
+
     /// <summary>
     /// Attempts to resolve date and Name from the provided fileName.
     /// </summary>
@@ -18,9 +21,7 @@ public class TimeExplicitlyInBracketsMovieDateTimeResolver : IMovieDateTimeResol
     /// <returns>null if could not resolve.</returns>
     public CleanDateTimeResult? Resolve(string fileName, NamingOptions namingOptions)
     {
-        var regex = new Regex(@"((\[|\()(?'date'\d{4})(\]|\)))");
-
-        var match = regex.Match(fileName);
+        var match = DateInBracketsRegex().Match(fileName);
 
         if (!match.Success)
         {

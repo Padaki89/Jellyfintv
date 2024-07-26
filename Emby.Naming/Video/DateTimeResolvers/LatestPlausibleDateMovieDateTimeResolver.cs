@@ -13,8 +13,11 @@ namespace Emby.Naming.Video.DateTimeResolvers;
 ///        (except '2001: A Space Odyssey - 1968' thats a edge case and if they dont bracket it its their fault)
 /// Eg. "1883 - 2021" will use 2021 as the date.
 /// </summary>
-public class LatestPlausibleDateMovieDateTimeResolver : IMovieDateTimeResolver
+public partial class LatestPlausibleDateMovieDateTimeResolver : IMovieDateTimeResolver
 {
+    [GeneratedRegex(@"(?'date'\d{4})(?!p)", RegexOptions.IgnoreCase)]
+    private static partial Regex AnyFourDigitDateRegex();
+
     /// <summary>
     /// Attempts to resolve date and Name from the provided fileName.
     /// </summary>
@@ -23,9 +26,7 @@ public class LatestPlausibleDateMovieDateTimeResolver : IMovieDateTimeResolver
     /// <returns>null if could not resolve.</returns>
     public CleanDateTimeResult? Resolve(string fileName, NamingOptions namingOptions)
     {
-        var regex = new Regex(@"(?'date'\d{4})(?!p)");
-
-        var matches = regex.Matches(fileName);
+        var matches = AnyFourDigitDateRegex().Matches(fileName);
 
         if (matches.Count == 0)
         {
