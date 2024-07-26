@@ -15,7 +15,7 @@ namespace Emby.Naming.Video.DateTimeResolvers;
 /// </summary>
 public partial class LatestPlausibleDateMovieDateTimeResolver : IMovieDateTimeResolver
 {
-    [GeneratedRegex(@"(?'date'\d{4})(?!p)", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"(?'date'[0-9]{4})(?!p)", RegexOptions.IgnoreCase)]
     private static partial Regex AnyFourDigitDateRegex();
 
     /// <summary>

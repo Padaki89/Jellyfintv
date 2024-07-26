@@ -11,10 +11,10 @@ namespace Emby.Naming.Video.DateTimeResolvers;
 /// </summary>
 public partial class SelfShotMoviesMovieDateTimeResolver : IMovieDateTimeResolver
 {
-    [GeneratedRegex(@"(?'name'.*(?'timestamp'(19\d{2}|20\d{2})(-|\.)?(\d{1,2})(-|\.)?(\d{1,2}))).*(?'date'19\d{2}|20\d{2})", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"(?'name'.*(?'timestamp'(19[0-9]{2}|20[0-9]{2})(-|\.)?([0-9]{1,2})(-|\.)?([0-9]{1,2}))).*(?'date'19[0-9]{2}|20[0-9]{2})", RegexOptions.IgnoreCase)]
     private static partial Regex TimestampWithDateRegex();
 
-    [GeneratedRegex(@"(?'name'.*(?'timestamp'(19\d{2}|20\d{2})(-|\.)?(\d{1,2})(-|\.)?(\d{1,2})))", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"(?'name'.*(?'timestamp'(19[0-9]{2}|20[0-9]{2})(-|\.)?([0-9]{1,2})(-|\.)?([0-9]{1,2})))", RegexOptions.IgnoreCase)]
     private static partial Regex TimestampRegex();
 
     /// <summary>

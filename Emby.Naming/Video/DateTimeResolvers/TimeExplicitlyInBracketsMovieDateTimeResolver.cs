@@ -10,7 +10,7 @@ namespace Emby.Naming.Video.DateTimeResolvers;
 /// </summary>
 public partial class TimeExplicitlyInBracketsMovieDateTimeResolver : IMovieDateTimeResolver
 {
-    [GeneratedRegex(@"((\[|\()(?'date'\d{4})(\]|\)))", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"((\[|\()(?'date'[0-9]{4})(\]|\)))", RegexOptions.IgnoreCase)]
     private static partial Regex DateInBracketsRegex();
 
     /// <summary>
