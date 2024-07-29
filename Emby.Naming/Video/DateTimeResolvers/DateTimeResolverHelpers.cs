@@ -40,9 +40,10 @@ public class DateTimeResolverHelpers
         }
 
         // Remove annotation of file
-        if (withoutDate.StartsWith('[') && withoutDate.Contains(']', StringComparison.InvariantCulture))
+        var closingBracketIndex = withoutDate.IndexOf(']', StringComparison.InvariantCulture);
+        if (withoutDate.StartsWith('[') && closingBracketIndex != -1)
         {
-            var withoutPrefix = withoutDate[(withoutDate.IndexOf(']', StringComparison.InvariantCulture) + 1) ..];
+            var withoutPrefix = withoutDate[(closingBracketIndex + 1) ..];
 
             if (withoutPrefix.Trim(TrimChars).Length != 0)
             {
