@@ -57,7 +57,9 @@ public partial class LatestPlausibleDateMovieDateTimeResolver : IMovieDateTimeRe
             return false;
         }
 
-        if (date > DateTime.Now.Year)
+        // Lets even add a additional year for safety (ikd. maybe someone wants to be the first movie of the next year or some timezone stuff)
+        // That its that close with the date of a title of a movie should be very uncommon anyway
+        if (date > (DateTime.Now.Year + 1))
         {
             // This movie would have been produced in the future
             return false;
