@@ -24,7 +24,7 @@ public class DateTimeResolverHelpers
     /// <returns>The best assumption of the fileName.</returns>
     public static string GetBestNameMatchAfterRemovalOfDate(string fileName, string dateWithSpecialCharacters, NamingOptions namingOptions)
     {
-        var positionOfDate = fileName.IndexOf(dateWithSpecialCharacters, StringComparison.InvariantCulture);
+        var positionOfDate = fileName.IndexOf(dateWithSpecialCharacters, StringComparison.Ordinal);
         var dateAtBegginingOfFileName = positionOfDate == 0;
 
         string withoutDate;
