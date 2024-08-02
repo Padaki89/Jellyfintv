@@ -161,7 +161,7 @@ namespace Emby.Naming.Video
 
             foreach (var videoFileExtension in namingOptions.VideoFileExtensions)
             {
-                fileNameWithoutExtension = fullFilePathWithOrWithoutExtension.Replace(videoFileExtension, string.Empty, StringComparison.InvariantCulture);
+                fileNameWithoutExtension = fullFilePathWithOrWithoutExtension.Replace(videoFileExtension, string.Empty, StringComparison.OrdinalIgnoreCase);
             }
 
             return fileNameWithoutExtension;
