@@ -17,6 +17,8 @@ public partial class SelfShotMoviesMovieDateTimeResolver : IMovieDateTimeResolve
     [GeneratedRegex(@"(?'name'.*(?'timestamp'(19[0-9]{2}|20[0-9]{2})(-|\.)?([0-9]{1,2})(-|\.)?([0-9]{1,2})))", RegexOptions.IgnoreCase)]
     private static partial Regex TimestampRegex();
 
+    private static readonly Regex[] _regexes = [TimestampWithDateRegex(), TimestampRegex()];
+
     /// <summary>
     /// Attempts to resolve date and Name from the provided fileName.
     /// </summary>
@@ -25,7 +27,7 @@ public partial class SelfShotMoviesMovieDateTimeResolver : IMovieDateTimeResolve
     /// <returns>null if could not resolve.</returns>
     public CleanDateTimeResult? Resolve(string fileName, NamingOptions namingOptions)
     {
-        foreach (var regex in new[] { TimestampWithDateRegex(), TimestampRegex() })
+        foreach (var regex in _regexes)
         {
             var match = regex.Match(fileName);
 
