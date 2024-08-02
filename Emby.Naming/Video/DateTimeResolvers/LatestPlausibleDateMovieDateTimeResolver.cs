@@ -33,33 +33,31 @@ public partial class LatestPlausibleDateMovieDateTimeResolver : IMovieDateTimeRe
             return null;
         }
 
-        var dates = matches
-            .Select(match => int.Parse(match.Value, CultureInfo.InvariantCulture))
+        var assumedDate = matches
+            .Select(match => int.Parse(match.Value, CultureInfo.InvariantCulture) as int?)
             .Where(IsPlausible)
             .Distinct()
-            .ToArray();
+            .Max();
 
-        if (dates.Length == 0)
+        if (assumedDate is null)
         {
             return null;
         }
 
-        var assumedDate = dates.Max();
-        var name = DateTimeResolverHelpers.GetBestNameMatchAfterRemovalOfDate(fileName, assumedDate.ToString(CultureInfo.InvariantCulture), namingOptions);
+        var name = DateTimeResolverHelpers.GetBestNameMatchAfterRemovalOfDate(fileName, assumedDate.Value.ToString(CultureInfo.InvariantCulture), namingOptions);
 
         return new CleanDateTimeResult(name, assumedDate);
     }
 
-    private bool IsPlausible(int date)
+    private bool IsPlausible(int? year)
     {
-        if (date < 1900)
+        if (year is null or < 1900)
         {
             return false;
         }
 
-        // Lets even add a additional year for safety (ikd. maybe someone wants to be the first movie of the next year or some timezone stuff)
-        // That its that close with the date of a title of a movie should be very uncommon anyway
-        if (date > (DateTime.Now.Year + 1))
+        // Additional year for edge cases.
+        if (year > (DateTime.Now.Year + 1))
         {
             // This movie would have been produced in the future
             return false;

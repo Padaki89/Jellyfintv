@@ -65,21 +65,19 @@ public class DateTimeResolverHelpers
     /// <returns>the cleaned filename.</returns>
     public static string TrimAfterFirstNonTitleOccurrence(string fileName, Regex[] nonTitleStringRegexes)
     {
-        var matchedGroups = nonTitleStringRegexes
+        var firstMatch = nonTitleStringRegexes
             .Select(regex => regex.Match(fileName))
             .Where(match => match.Success)
             .SelectMany(match => match.Groups.Values)
             .Where(group => group.Length != 0)
-            .ToArray();
+            .MinBy(group => group.Index);
 
-        if (matchedGroups.Length == 0)
+        if (firstMatch is null)
         {
             return fileName;
         }
 
-        var firstMatch = matchedGroups.MinBy(group => group.Index);
-
-        var newFileName = fileName[..firstMatch!.Index].Trim(TrimChars);
+        var newFileName = fileName[..firstMatch.Index].Trim(TrimChars);
 
         return newFileName.Length == 0 ? fileName : newFileName;
     }
