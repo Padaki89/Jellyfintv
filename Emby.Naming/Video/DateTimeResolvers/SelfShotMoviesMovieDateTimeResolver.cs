@@ -11,13 +11,13 @@ namespace Emby.Naming.Video.DateTimeResolvers;
 /// </summary>
 public partial class SelfShotMoviesMovieDateTimeResolver : IMovieDateTimeResolver
 {
+    private static readonly Regex[] _regexes = [TimestampWithDateRegex(), TimestampRegex()];
+
     [GeneratedRegex(@"(?'name'.*(?'timestamp'(19[0-9]{2}|20[0-9]{2})(-|\.)?([0-9]{1,2})(-|\.)?([0-9]{1,2}))).*(?'date'19[0-9]{2}|20[0-9]{2})", RegexOptions.IgnoreCase)]
     private static partial Regex TimestampWithDateRegex();
 
     [GeneratedRegex(@"(?'name'.*(?'timestamp'(19[0-9]{2}|20[0-9]{2})(-|\.)?([0-9]{1,2})(-|\.)?([0-9]{1,2})))", RegexOptions.IgnoreCase)]
     private static partial Regex TimestampRegex();
-
-    private static readonly Regex[] _regexes = [TimestampWithDateRegex(), TimestampRegex()];
 
     /// <summary>
     /// Attempts to resolve date and Name from the provided fileName.
