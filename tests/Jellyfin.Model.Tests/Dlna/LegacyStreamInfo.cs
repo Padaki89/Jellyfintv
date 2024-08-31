@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using Jellyfin.Data.Enums;
 using Jellyfin.Extensions;
 using MediaBrowser.Model.Dlna;
 using MediaBrowser.Model.Dto;
@@ -84,7 +85,7 @@ public class LegacyStreamInfo : StreamInfo
 
         if (MediaType == DlnaProfileType.Audio)
         {
-            if (string.Equals(SubProtocol, "hls", StringComparison.OrdinalIgnoreCase))
+            if (SubProtocol == MediaStreamProtocol.hls)
             {
                 return string.Format(CultureInfo.InvariantCulture, "{0}/audio/{1}/master.m3u8?{2}", baseUrl, ItemId, queryString);
             }
@@ -92,7 +93,7 @@ public class LegacyStreamInfo : StreamInfo
             return string.Format(CultureInfo.InvariantCulture, "{0}/audio/{1}/stream{2}?{3}", baseUrl, ItemId, extension, queryString);
         }
 
-        if (string.Equals(SubProtocol, "hls", StringComparison.OrdinalIgnoreCase))
+        if (SubProtocol == MediaStreamProtocol.hls)
         {
             return string.Format(CultureInfo.InvariantCulture, "{0}/videos/{1}/master.m3u8?{2}", baseUrl, ItemId, queryString);
         }
@@ -130,8 +131,7 @@ public class LegacyStreamInfo : StreamInfo
 
         long startPositionTicks = item.StartPositionTicks;
 
-        var isHls = string.Equals(item.SubProtocol, "hls", StringComparison.OrdinalIgnoreCase);
-
+        var isHls = item.SubProtocol == MediaStreamProtocol.hls;
         if (isHls)
         {
             list.Add(new NameValuePair("StartTimeTicks", string.Empty));
