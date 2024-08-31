@@ -9,6 +9,7 @@ namespace Jellyfin.Model.Tests.Dlna;
 public class StreamInfoTests
 {
     private const string BaseUrl = "/test/";
+    private const int RandomSeed = 298347823;
 
     /// <summary>
     /// Returns a random float.
@@ -136,7 +137,7 @@ public class StreamInfoTests
     /// <param name="destination">The instance to fill with data.</param>
     private static void FillAllProperties<T>(T destination)
     {
-        var random = new Random();
+        var random = new Random(RandomSeed);
         var objectType = destination!.GetType();
         foreach (var property in objectType.GetProperties())
         {
