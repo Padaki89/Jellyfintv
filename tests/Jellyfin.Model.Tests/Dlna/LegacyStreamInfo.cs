@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using Jellyfin.Data.Enums;
 using Jellyfin.Extensions;
 using MediaBrowser.Model.Dlna;
@@ -23,17 +24,9 @@ public class LegacyStreamInfo : StreamInfo
     /// <param name="baseUrl">The base url to use.</param>
     /// <param name="accessToken">The Access token.</param>
     /// <returns>A url.</returns>
-    public string ToUrl_Original(string baseUrl, string accessToken)
+    public string ToUrl_Original(string baseUrl, string? accessToken)
     {
-        if (PlayMethod == PlayMethod.DirectPlay)
-        {
-            return MediaSource?.Path ?? string.Empty;
-        }
-
-        if (string.IsNullOrEmpty(baseUrl))
-        {
-            throw new ArgumentNullException(nameof(baseUrl));
-        }
+        ArgumentException.ThrowIfNullOrEmpty(baseUrl);
 
         var list = new List<string>();
         foreach (NameValuePair pair in BuildParams(this, accessToken))
@@ -44,20 +37,20 @@ public class LegacyStreamInfo : StreamInfo
             }
 
             // Try to keep the url clean by omitting defaults
-            if (string.Equals(pair.Name, "StartTimeTicks", StringComparison.OrdinalIgnoreCase) &&
-                string.Equals(pair.Value, "0", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(pair.Name, "StartTimeTicks", StringComparison.OrdinalIgnoreCase)
+                && string.Equals(pair.Value, "0", StringComparison.OrdinalIgnoreCase))
             {
                 continue;
             }
 
-            if (string.Equals(pair.Name, "SubtitleStreamIndex", StringComparison.OrdinalIgnoreCase) &&
-                string.Equals(pair.Value, "-1", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(pair.Name, "SubtitleStreamIndex", StringComparison.OrdinalIgnoreCase)
+                && string.Equals(pair.Value, "-1", StringComparison.OrdinalIgnoreCase))
             {
                 continue;
             }
 
-            if (string.Equals(pair.Name, "Static", StringComparison.OrdinalIgnoreCase) &&
-                string.Equals(pair.Value, "false", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(pair.Name, "Static", StringComparison.OrdinalIgnoreCase)
+                && string.Equals(pair.Value, "false", StringComparison.OrdinalIgnoreCase))
             {
                 continue;
             }
@@ -67,17 +60,14 @@ public class LegacyStreamInfo : StreamInfo
             list.Add(string.Format(CultureInfo.InvariantCulture, "{0}={1}", pair.Name, encodedValue));
         }
 
-        string queryString = string.Join("&", list.ToArray());
+        string queryString = string.Join('&', list);
 
         return GetUrl(baseUrl, queryString);
     }
 
     private string GetUrl(string baseUrl, string queryString)
     {
-        if (string.IsNullOrEmpty(baseUrl))
-        {
-            throw new ArgumentNullException(nameof(baseUrl));
-        }
+        ArgumentException.ThrowIfNullOrEmpty(baseUrl);
 
         string extension = string.IsNullOrEmpty(Container) ? string.Empty : "." + Container;
 
@@ -101,17 +91,17 @@ public class LegacyStreamInfo : StreamInfo
         return string.Format(CultureInfo.InvariantCulture, "{0}/videos/{1}/stream{2}?{3}", baseUrl, ItemId, extension, queryString);
     }
 
-    private static List<NameValuePair> BuildParams(StreamInfo item, string accessToken)
+    private static List<NameValuePair> BuildParams(StreamInfo item, string? accessToken)
     {
         var list = new List<NameValuePair>();
 
         string audioCodecs = item.AudioCodecs.Length == 0 ?
             string.Empty :
-            string.Join(",", item.AudioCodecs);
+            string.Join(',', item.AudioCodecs);
 
         string videoCodecs = item.VideoCodecs.Length == 0 ?
             string.Empty :
-            string.Join(",", item.VideoCodecs);
+            string.Join(',', item.VideoCodecs);
 
         list.Add(new NameValuePair("DeviceProfileId", item.DeviceProfileId ?? string.Empty));
         list.Add(new NameValuePair("DeviceId", item.DeviceId ?? string.Empty));
@@ -131,10 +121,22 @@ public class LegacyStreamInfo : StreamInfo
 
         long startPositionTicks = item.StartPositionTicks;
 
-        var isHls = item.SubProtocol == MediaStreamProtocol.hls;
-        if (isHls)
+        if (item.SubProtocol == MediaStreamProtocol.hls)
         {
             list.Add(new NameValuePair("StartTimeTicks", string.Empty));
+            list.Add(new NameValuePair("SegmentContainer", item.Container ?? string.Empty));
+
+            if (item.SegmentLength.HasValue)
+            {
+                list.Add(new NameValuePair("SegmentLength", item.SegmentLength.Value.ToString(CultureInfo.InvariantCulture)));
+            }
+
+            if (item.MinSegments.HasValue)
+            {
+                list.Add(new NameValuePair("MinSegments", item.MinSegments.Value.ToString(CultureInfo.InvariantCulture)));
+            }
+
+            list.Add(new NameValuePair("BreakOnNonKeyFrames", item.BreakOnNonKeyFrames.ToString(CultureInfo.InvariantCulture)));
         }
         else
         {
@@ -144,10 +146,8 @@ public class LegacyStreamInfo : StreamInfo
         list.Add(new NameValuePair("PlaySessionId", item.PlaySessionId ?? string.Empty));
         list.Add(new NameValuePair("api_key", accessToken ?? string.Empty));
 
-        var liveStreamId = item.MediaSource?.LiveStreamId;
+        string? liveStreamId = item.MediaSource?.LiveStreamId;
         list.Add(new NameValuePair("LiveStreamId", liveStreamId ?? string.Empty));
-
-        list.Add(new NameValuePair("SubtitleMethod", item.SubtitleStreamIndex.HasValue && item.SubtitleDeliveryMethod != SubtitleDeliveryMethod.External ? item.SubtitleDeliveryMethod.ToString() : string.Empty));
 
         if (!item.IsDirectStream)
         {
@@ -183,7 +183,15 @@ public class LegacyStreamInfo : StreamInfo
                 list.Add(new NameValuePair("CopyTimestamps", item.CopyTimestamps.ToString(CultureInfo.InvariantCulture).ToLowerInvariant()));
             }
 
-            list.Add(new NameValuePair("RequireAvc", item.RequireAvc.ToString(CultureInfo.InvariantCulture).ToLowerInvariant()));
+            if (item.RequireAvc)
+            {
+                list.Add(new NameValuePair("RequireAvc", item.RequireAvc.ToString(CultureInfo.InvariantCulture).ToLowerInvariant()));
+            }
+
+            if (item.EnableAudioVbrEncoding)
+            {
+                list.Add(new NameValuePair("EnableAudioVbrEncoding", item.EnableAudioVbrEncoding.ToString(CultureInfo.InvariantCulture).ToLowerInvariant()));
+            }
         }
 
         list.Add(new NameValuePair("Tag", item.MediaSource?.ETag ?? string.Empty));
@@ -192,24 +200,8 @@ public class LegacyStreamInfo : StreamInfo
            string.Empty :
            string.Join(",", item.SubtitleCodecs);
 
+        list.Add(new NameValuePair("SubtitleMethod", item.SubtitleStreamIndex.HasValue && item.SubtitleDeliveryMethod != SubtitleDeliveryMethod.External ? item.SubtitleDeliveryMethod.ToString() : string.Empty));
         list.Add(new NameValuePair("SubtitleCodec", item.SubtitleStreamIndex.HasValue && item.SubtitleDeliveryMethod == SubtitleDeliveryMethod.Embed ? subtitleCodecs : string.Empty));
-
-        if (isHls)
-        {
-            list.Add(new NameValuePair("SegmentContainer", item.Container ?? string.Empty));
-
-            if (item.SegmentLength.HasValue)
-            {
-                list.Add(new NameValuePair("SegmentLength", item.SegmentLength.Value.ToString(CultureInfo.InvariantCulture)));
-            }
-
-            if (item.MinSegments.HasValue)
-            {
-                list.Add(new NameValuePair("MinSegments", item.MinSegments.Value.ToString(CultureInfo.InvariantCulture)));
-            }
-
-            list.Add(new NameValuePair("BreakOnNonKeyFrames", item.BreakOnNonKeyFrames.ToString(CultureInfo.InvariantCulture)));
-        }
 
         foreach (var pair in item.StreamOptions)
         {
@@ -218,13 +210,14 @@ public class LegacyStreamInfo : StreamInfo
                 continue;
             }
 
-            // Strip spaces to avoid having to encode h264 profile names
+            // strip spaces to avoid having to encode h264 profile names
             list.Add(new NameValuePair(pair.Key, pair.Value.Replace(" ", string.Empty, StringComparison.Ordinal)));
         }
 
-        if (!item.IsDirectStream)
+        var transcodeReasonsValues = item.TranscodeReasons.GetUniqueFlags().ToArray();
+        if (!item.IsDirectStream && transcodeReasonsValues.Length > 0)
         {
-            list.Add(new NameValuePair("TranscodeReasons", string.Join(',', item.TranscodeReasons.GetUniqueFlags())));
+            list.Add(new NameValuePair("TranscodeReasons", item.TranscodeReasons.ToString()));
         }
 
         return list;

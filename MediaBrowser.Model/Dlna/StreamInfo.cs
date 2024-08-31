@@ -756,14 +756,6 @@ namespace MediaBrowser.Model.Dlna
 
             if (SubProtocol == MediaStreamProtocol.hls)
             {
-                if (StartPositionTicks != 0)
-                {
-                    sb.Append("&StartTimeTicks=");
-                    sb.Append(StartPositionTicks.ToString(CultureInfo.InvariantCulture));
-                }
-            }
-            else
-            {
                 if (!string.IsNullOrEmpty(Container))
                 {
                     sb.Append("&SegmentContainer=");
@@ -784,6 +776,14 @@ namespace MediaBrowser.Model.Dlna
 
                 sb.Append("&BreakOnNonKeyFrames=");
                 sb.Append(BreakOnNonKeyFrames.ToString(CultureInfo.InvariantCulture));
+            }
+            else
+            {
+                if (StartPositionTicks != 0)
+                {
+                    sb.Append("&StartTimeTicks=");
+                    sb.Append(StartPositionTicks.ToString(CultureInfo.InvariantCulture));
+                }
             }
 
             if (!string.IsNullOrEmpty(PlaySessionId))
@@ -849,11 +849,17 @@ namespace MediaBrowser.Model.Dlna
                     sb.Append(CopyTimestamps.ToString(CultureInfo.InvariantCulture));
                 }
 
-                sb.Append("&RequireAvc=");
-                sb.Append(RequireAvc.ToString(CultureInfo.InvariantCulture));
+                if (RequireAvc)
+                {
+                    sb.Append("&RequireAvc=");
+                    sb.Append(RequireAvc.ToString(CultureInfo.InvariantCulture));
+                }
 
-                sb.Append("EnableAudioVbrEncoding=");
-                sb.Append(EnableAudioVbrEncoding.ToString(CultureInfo.InvariantCulture).ToLowerInvariant());
+                if (EnableAudioVbrEncoding)
+                {
+                    sb.Append("EnableAudioVbrEncoding=");
+                    sb.Append(EnableAudioVbrEncoding.ToString(CultureInfo.InvariantCulture).ToLowerInvariant());
+                }
             }
 
             var etag = MediaSource?.ETag;
@@ -861,6 +867,12 @@ namespace MediaBrowser.Model.Dlna
             {
                 sb.Append("&Tag=");
                 sb.Append(etag);
+            }
+
+            if (SubtitleStreamIndex.HasValue && SubtitleDeliveryMethod != SubtitleDeliveryMethod.External)
+            {
+                sb.Append("&SubtitleMethod=");
+                sb.AppendJoin(',', SubtitleDeliveryMethod);
             }
 
             if (SubtitleStreamIndex.HasValue && SubtitleDeliveryMethod == SubtitleDeliveryMethod.Embed && SubtitleCodecs.Length != 0)
