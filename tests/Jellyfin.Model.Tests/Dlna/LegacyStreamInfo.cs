@@ -6,7 +6,6 @@ using Jellyfin.Data.Enums;
 using Jellyfin.Extensions;
 using MediaBrowser.Model.Dlna;
 using MediaBrowser.Model.Dto;
-using MediaBrowser.Model.Session;
 
 namespace Jellyfin.Model.Tests.Dlna;
 
