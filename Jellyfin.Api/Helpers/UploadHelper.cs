@@ -53,14 +53,14 @@ public class UploadHelper
             .TrimDescription()
             .ToFrozenSet();
 
-        extensions = new[]
-            {
+        extensions =
+            [
                 "jpg",
                 "png",
                 "gif",
                 "webp",
                 "bmp"
-            };
+            ];
         _imageDefinitions = allDefinitions
             .ScopeExtensions(extensions)
             .TrimMeta()
@@ -106,7 +106,7 @@ public class UploadHelper
     /// <param name="filePath">The file path to write the data to.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A <see cref="Task"/> writing the stream to a file.</returns>
-    public async Task WriteStreamToFile(Stream stream, string filePath, CancellationToken cancellationToken)
+    public static async Task WriteStreamToFile(Stream stream, string filePath, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(stream);
         ArgumentNullException.ThrowIfNull(filePath);
