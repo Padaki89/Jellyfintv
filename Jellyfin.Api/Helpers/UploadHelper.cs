@@ -1,5 +1,5 @@
 using System;
-using System.Collections.Immutable;
+using System.Collections.Frozen;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -16,13 +16,13 @@ using MimeDetective.Storage;
 namespace Jellyfin.Api.Helpers;
 
 /// <summary>
-/// Utitlity class providing upload helper functions.
+/// Utility class providing upload helper functions.
 /// </summary>
 public class UploadHelper
 {
-    private readonly ImmutableArray<Definition> _videoDefinitions;
-    private readonly ImmutableArray<Definition> _audioDefinitions;
-    private readonly ImmutableArray<Definition> _imageDefinitions;
+    private readonly FrozenSet<Definition> _videoDefinitions;
+    private readonly FrozenSet<Definition> _audioDefinitions;
+    private readonly FrozenSet<Definition> _imageDefinitions;
     private readonly ILogger<UploadHelper> _logger;
 
     /// <summary>
@@ -44,14 +44,14 @@ public class UploadHelper
             .ScopeExtensions(extensions)
             .TrimMeta()
             .TrimDescription()
-            .ToImmutableArray();
+            .ToFrozenSet();
 
         extensions = namingOptions.VideoFileExtensions.Select(x => x.Replace(".", string.Empty, StringComparison.OrdinalIgnoreCase)).ToArray();
         _videoDefinitions = allDefinitions
             .ScopeExtensions(extensions)
             .TrimMeta()
             .TrimDescription()
-            .ToImmutableArray();
+            .ToFrozenSet();
 
         extensions = new[]
             {
@@ -65,7 +65,7 @@ public class UploadHelper
             .ScopeExtensions(extensions)
             .TrimMeta()
             .TrimDescription()
-            .ToImmutableArray();
+            .ToFrozenSet();
 
         _logger = logger;
     }
@@ -84,7 +84,7 @@ public class UploadHelper
         var definitions = GetDefinitionsForType(contentType.Split('/')[0]);
         var inspector = new ContentInspectorBuilder()
         {
-            Definitions = definitions,
+            Definitions = [.. definitions],
         }.Build();
 
         var realMimeTypeMatchesContentType = inspector.Inspect(stream)
@@ -118,14 +118,14 @@ public class UploadHelper
         }
     }
 
-    private ImmutableArray<Definition> GetDefinitionsForType(string type)
+    private FrozenSet<Definition> GetDefinitionsForType(string type)
     {
-        switch (type)
+        return type switch
         {
-            case "audio": return _audioDefinitions;
-            case "video": return _videoDefinitions;
-            case "image": return _imageDefinitions;
-            default: return ImmutableArray.Create<Definition>();
-        }
+            "audio" => _audioDefinitions,
+            "video" => _videoDefinitions,
+            "image" => _imageDefinitions,
+            _ => FrozenSet<Definition>.Empty
+        };
     }
 }

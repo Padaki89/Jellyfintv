@@ -555,9 +555,9 @@ namespace Emby.Server.Implementations
             serviceCollection.AddSingleton<ITranscodeManager, TranscodeManager>();
             serviceCollection.AddScoped<MediaInfoHelper>();
             serviceCollection.AddScoped<AudioHelper>();
-            serviceCollection.AddScoped<UploadHelper>();
             serviceCollection.AddScoped<DynamicHlsHelper>();
             serviceCollection.AddScoped<IClientEventLogger, ClientEventLogger>();
+            serviceCollection.AddSingleton<UploadHelper>();
             serviceCollection.AddSingleton<IDirectoryService, DirectoryService>();
 
             serviceCollection.AddSingleton<IMediaSegmentManager, MediaSegmentManager>();
