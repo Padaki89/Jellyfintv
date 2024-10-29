@@ -778,7 +778,7 @@ namespace MediaBrowser.Providers.Manager
                     }
                     else
                     {
-                        var shouldReplace = options.MetadataRefreshMode > MetadataRefreshMode.ValidationOnly || options.ReplaceAllMetadata;
+                        var shouldReplace = options.MetadataRefreshMode > MetadataRefreshMode.ValidationOnly && options.ReplaceAllMetadata;
                         MergeData(temp, metadata, item.LockedFields, shouldReplace, true);
                     }
                 }
