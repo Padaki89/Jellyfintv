@@ -47,8 +47,8 @@ namespace Emby.Server.Implementations.Data
 
         private const string SaveItemCommandText =
             @"replace into TypedBaseItems
-            (guid,type,data,Path,StartDate,EndDate,ChannelId,IsMovie,IsSeries,EpisodeTitle,IsRepeat,CommunityRating,CustomRating,IndexNumber,IsLocked,Name,OfficialRating,MediaType,Overview,ParentIndexNumber,PremiereDate,ProductionYear,ParentId,Genres,InheritedParentalRatingValue,SortName,ForcedSortName,RunTimeTicks,Size,DateCreated,DateModified,PreferredMetadataLanguage,PreferredMetadataCountryCode,Width,Height,DateLastRefreshed,DateLastSaved,IsInMixedFolder,LockedFields,Studios,Audio,ExternalServiceId,Tags,IsFolder,UnratedType,TopParentId,TrailerTypes,CriticRating,CleanName,PresentationUniqueKey,OriginalTitle,PrimaryVersionId,DateLastMediaAdded,Album,LUFS,NormalizationGain,IsVirtualItem,SeriesName,UserDataKey,SeasonName,SeasonId,SeriesId,ExternalSeriesId,Tagline,ProviderIds,Images,ProductionLocations,ExtraIds,TotalBitrate,ExtraType,Artists,AlbumArtists,ExternalId,SeriesPresentationUniqueKey,ShowId,OwnerId)
-            values (@guid,@type,@data,@Path,@StartDate,@EndDate,@ChannelId,@IsMovie,@IsSeries,@EpisodeTitle,@IsRepeat,@CommunityRating,@CustomRating,@IndexNumber,@IsLocked,@Name,@OfficialRating,@MediaType,@Overview,@ParentIndexNumber,@PremiereDate,@ProductionYear,@ParentId,@Genres,@InheritedParentalRatingValue,@SortName,@ForcedSortName,@RunTimeTicks,@Size,@DateCreated,@DateModified,@PreferredMetadataLanguage,@PreferredMetadataCountryCode,@Width,@Height,@DateLastRefreshed,@DateLastSaved,@IsInMixedFolder,@LockedFields,@Studios,@Audio,@ExternalServiceId,@Tags,@IsFolder,@UnratedType,@TopParentId,@TrailerTypes,@CriticRating,@CleanName,@PresentationUniqueKey,@OriginalTitle,@PrimaryVersionId,@DateLastMediaAdded,@Album,@LUFS,@NormalizationGain,@IsVirtualItem,@SeriesName,@UserDataKey,@SeasonName,@SeasonId,@SeriesId,@ExternalSeriesId,@Tagline,@ProviderIds,@Images,@ProductionLocations,@ExtraIds,@TotalBitrate,@ExtraType,@Artists,@AlbumArtists,@ExternalId,@SeriesPresentationUniqueKey,@ShowId,@OwnerId)";
+            (guid,type,data,Path,StartDate,EndDate,ChannelId,IsMovie,IsSeries,EpisodeTitle,IsRepeat,CommunityRating,CustomRating,IndexNumber,IsLocked,Name,OfficialRating,MediaType,Overview,ParentIndexNumber,PremiereDate,ProductionYear,ParentId,Genres,InheritedParentalRatingValue,SortName,ForcedSortName,RunTimeTicks,Size,DateCreated,DateModified,PreferredMetadataLanguage,PreferredMetadataCountryCode,Width,Height,DateLastRefreshed,DateLastSaved,IsInMixedFolder,LockedFields,Studios,Audio,ExternalServiceId,Tags,IsFolder,UnratedType,TopParentId,TrailerTypes,CriticRating,CleanName,PresentationUniqueKey,OriginalTitle,OriginalLanguage,PrimaryVersionId,DateLastMediaAdded,Album,LUFS,NormalizationGain,IsVirtualItem,SeriesName,UserDataKey,SeasonName,SeasonId,SeriesId,ExternalSeriesId,Tagline,ProviderIds,Images,ProductionLocations,ExtraIds,TotalBitrate,ExtraType,Artists,AlbumArtists,ExternalId,SeriesPresentationUniqueKey,ShowId,OwnerId)
+            values (@guid,@type,@data,@Path,@StartDate,@EndDate,@ChannelId,@IsMovie,@IsSeries,@EpisodeTitle,@IsRepeat,@CommunityRating,@CustomRating,@IndexNumber,@IsLocked,@Name,@OfficialRating,@MediaType,@Overview,@ParentIndexNumber,@PremiereDate,@ProductionYear,@ParentId,@Genres,@InheritedParentalRatingValue,@SortName,@ForcedSortName,@RunTimeTicks,@Size,@DateCreated,@DateModified,@PreferredMetadataLanguage,@PreferredMetadataCountryCode,@Width,@Height,@DateLastRefreshed,@DateLastSaved,@IsInMixedFolder,@LockedFields,@Studios,@Audio,@ExternalServiceId,@Tags,@IsFolder,@UnratedType,@TopParentId,@TrailerTypes,@CriticRating,@CleanName,@PresentationUniqueKey,@OriginalTitle,@OriginalLanguage,@PrimaryVersionId,@DateLastMediaAdded,@Album,@LUFS,@NormalizationGain,@IsVirtualItem,@SeriesName,@UserDataKey,@SeasonName,@SeasonId,@SeriesId,@ExternalSeriesId,@Tagline,@ProviderIds,@Images,@ProductionLocations,@ExtraIds,@TotalBitrate,@ExtraType,@Artists,@AlbumArtists,@ExternalId,@SeriesPresentationUniqueKey,@ShowId,@OwnerId)";
 
         private readonly IServerConfigurationManager _config;
         private readonly IServerApplicationHost _appHost;
@@ -105,6 +105,7 @@ namespace Emby.Server.Implementations.Data
             "Tags",
             "TrailerTypes",
             "OriginalTitle",
+            "OriginalLanguage",
             "PrimaryVersionId",
             "DateLastMediaAdded",
             "Album",
@@ -182,7 +183,8 @@ namespace Emby.Server.Implementations.Data
             "BlPresentFlag",
             "DvBlSignalCompatibilityId",
             "IsHearingImpaired",
-            "Rotation"
+            "Rotation",
+            "IsOriginal"
         };
 
         private static readonly string _mediaStreamSaveColumnsInsertQuery =
@@ -342,7 +344,7 @@ namespace Emby.Server.Implementations.Data
             base.Initialize();
 
             const string CreateMediaStreamsTableCommand
-                    = "create table if not exists mediastreams (ItemId GUID, StreamIndex INT, StreamType TEXT, Codec TEXT, Language TEXT, ChannelLayout TEXT, Profile TEXT, AspectRatio TEXT, Path TEXT, IsInterlaced BIT, BitRate INT NULL, Channels INT NULL, SampleRate INT NULL, IsDefault BIT, IsForced BIT, IsExternal BIT, Height INT NULL, Width INT NULL, AverageFrameRate FLOAT NULL, RealFrameRate FLOAT NULL, Level FLOAT NULL, PixelFormat TEXT, BitDepth INT NULL, IsAnamorphic BIT NULL, RefFrames INT NULL, CodecTag TEXT NULL, Comment TEXT NULL, NalLengthSize TEXT NULL, IsAvc BIT NULL, Title TEXT NULL, TimeBase TEXT NULL, CodecTimeBase TEXT NULL, ColorPrimaries TEXT NULL, ColorSpace TEXT NULL, ColorTransfer TEXT NULL, DvVersionMajor INT NULL, DvVersionMinor INT NULL, DvProfile INT NULL, DvLevel INT NULL, RpuPresentFlag INT NULL, ElPresentFlag INT NULL, BlPresentFlag INT NULL, DvBlSignalCompatibilityId INT NULL, IsHearingImpaired BIT NULL, Rotation INT NULL, PRIMARY KEY (ItemId, StreamIndex))";
+                    = "create table if not exists mediastreams (ItemId GUID, StreamIndex INT, StreamType TEXT, Codec TEXT, Language TEXT, ChannelLayout TEXT, Profile TEXT, AspectRatio TEXT, Path TEXT, IsInterlaced BIT, BitRate INT NULL, Channels INT NULL, SampleRate INT NULL, IsDefault BIT, IsForced BIT, IsExternal BIT, Height INT NULL, Width INT NULL, AverageFrameRate FLOAT NULL, RealFrameRate FLOAT NULL, Level FLOAT NULL, PixelFormat TEXT, BitDepth INT NULL, IsAnamorphic BIT NULL, RefFrames INT NULL, CodecTag TEXT NULL, Comment TEXT NULL, NalLengthSize TEXT NULL, IsAvc BIT NULL, Title TEXT NULL, TimeBase TEXT NULL, CodecTimeBase TEXT NULL, ColorPrimaries TEXT NULL, ColorSpace TEXT NULL, ColorTransfer TEXT NULL, DvVersionMajor INT NULL, DvVersionMinor INT NULL, DvProfile INT NULL, DvLevel INT NULL, RpuPresentFlag INT NULL, ElPresentFlag INT NULL, BlPresentFlag INT NULL, DvBlSignalCompatibilityId INT NULL, IsHearingImpaired BIT NULL, Rotation INT NULL, IsOriginal BIT NULL, PRIMARY KEY (ItemId, StreamIndex))";
 
             const string CreateMediaAttachmentsTableCommand
                     = "create table if not exists mediaattachments (ItemId GUID, AttachmentIndex INT, Codec TEXT, CodecTag TEXT NULL, Comment TEXT NULL, Filename TEXT NULL, MIMEType TEXT NULL, PRIMARY KEY (ItemId, AttachmentIndex))";
@@ -473,6 +475,7 @@ namespace Emby.Server.Implementations.Data
                 AddColumn(connection, "TypedBaseItems", "CleanName", "Text", existingColumnNames);
                 AddColumn(connection, "TypedBaseItems", "PresentationUniqueKey", "Text", existingColumnNames);
                 AddColumn(connection, "TypedBaseItems", "OriginalTitle", "Text", existingColumnNames);
+                AddColumn(connection, "TypedBaseItems", "OriginalLanguage", "Text", existingColumnNames);
                 AddColumn(connection, "TypedBaseItems", "PrimaryVersionId", "Text", existingColumnNames);
                 AddColumn(connection, "TypedBaseItems", "DateLastMediaAdded", "DATETIME", existingColumnNames);
                 AddColumn(connection, "TypedBaseItems", "Album", "Text", existingColumnNames);
@@ -538,6 +541,8 @@ namespace Emby.Server.Implementations.Data
                 AddColumn(connection, "MediaStreams", "IsHearingImpaired", "BIT", existingColumnNames);
 
                 AddColumn(connection, "MediaStreams", "Rotation", "INT", existingColumnNames);
+
+                AddColumn(connection, "MediaStreams", "IsOriginal", "BIT", existingColumnNames);
 
                 connection.Execute(string.Join(';', postQueries));
 
@@ -868,6 +873,7 @@ namespace Emby.Server.Implementations.Data
 
             saveItemStatement.TryBind("@PresentationUniqueKey", item.PresentationUniqueKey);
             saveItemStatement.TryBind("@OriginalTitle", item.OriginalTitle);
+            saveItemStatement.TryBind("@OriginalLanguage", item.OriginalLanguage);
 
             if (item is Video video)
             {
@@ -1646,6 +1652,14 @@ namespace Emby.Server.Implementations.Data
                 }
             }
 
+            if (HasField(query, ItemFields.OriginalLanguage))
+            {
+                if (reader.TryGetString(index++, out var originalLanguage))
+                {
+                    item.OriginalLanguage = originalLanguage;
+                }
+            }
+
             if (item is Video video)
             {
                 if (reader.TryGetString(index, out var primaryVersionId))
@@ -2061,6 +2075,7 @@ namespace Emby.Server.Implementations.Data
                 case ItemFields.ProductionLocations:
                 case ItemFields.Settings:
                 case ItemFields.OriginalTitle:
+                case ItemFields.OriginalLanguage:
                 case ItemFields.Taglines:
                 case ItemFields.SortName:
                 case ItemFields.Studios:
@@ -5514,6 +5529,8 @@ AND Type = @InternalPersonType)");
                         statement.TryBind("@IsHearingImpaired" + index, stream.IsHearingImpaired);
 
                         statement.TryBind("@Rotation" + index, stream.Rotation);
+
+                        statement.TryBind("@IsOriginal" + index, stream.IsOriginal);
                     }
 
                     statement.ExecuteNonQuery();
@@ -5730,10 +5747,17 @@ AND Type = @InternalPersonType)");
                 item.Rotation = rotation;
             }
 
+            item.IsOriginal = reader.GetBoolean(45);
+
             if (item.Type is MediaStreamType.Audio or MediaStreamType.Subtitle)
             {
                 item.LocalizedDefault = _localization.GetLocalizedString("Default");
                 item.LocalizedExternal = _localization.GetLocalizedString("External");
+
+                if (item.Type is MediaStreamType.Audio)
+                {
+                    item.LocalizedOriginal = _localization.GetLocalizedString("Original");
+                }
 
                 if (item.Type is MediaStreamType.Subtitle)
                 {
