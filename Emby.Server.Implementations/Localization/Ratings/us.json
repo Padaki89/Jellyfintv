@@ -24,24 +24,24 @@
             }
         },
         {
-            "ratingStrings": ["PG"],
+            "ratingStrings": ["PG", "TV-PG"],
             "ratingScore": {
                 "score": 10,
                 "subScore": 0
             }
         },
         {
-            "ratingStrings": ["PG-13", "TV-PG"],
+            "ratingStrings": ["TV-PG-D", "TV-PG-L", "TV-PG-S", "TV-PG-V", "TV-PG-DL", "TV-PG-DS", "TV-PG-DV", "TV-PG-LS", "TV-PG-LV", "TV-PG-SV", "TV-PG-DLS", "TV-PG-DLV", "TV-PG-DSV", "TV-PG-LSV", "TV-PG-DLSV"],
             "ratingScore": {
-                "score": 13,
-                "subScore": 0
+                "score": 10,
+                "subScore": 1
             }
         },
         {
-            "ratingStrings": ["TV-PG-D", "TV-PG-L", "TV-PG-S", "TV-PG-V", "TV-PG-DL", "TV-PG-DS", "TV-PG-DV", "TV-PG-LS", "TV-PG-LV", "TV-PG-SV", "TV-PG-DLS", "TV-PG-DLV", "TV-PG-DSV", "TV-PG-LSV", "TV-PG-DLSV"],
+            "ratingStrings": ["PG-13"],
             "ratingScore": {
                 "score": 13,
-                "subScore": 1
+                "subScore": 0
             }
         },
         {
@@ -70,6 +70,13 @@
             "ratingScore": {
                 "score": 17,
                 "subScore": 1
+            }
+        },
+        {
+            "ratingStrings": ["TV-X", "TV-AO"],
+            "ratingScore": {
+                "score": 18,
+                "subScore": 0
             }
         }
     ]
