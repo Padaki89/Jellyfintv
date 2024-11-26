@@ -194,6 +194,7 @@
  - [elfalem](https://github.com/elfalem)
  - [benedikt257](https://github.com/benedikt257)
  - [revam](https://github.com/revam)
+ - [Tharun Prabhu](https://github.com/tharunprabhu)
 
 # Emby Contributors
 
